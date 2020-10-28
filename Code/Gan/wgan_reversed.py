@@ -1,3 +1,5 @@
+import numpy as np
+
 import torch
 from sklearn import svm
 from sklearn.model_selection import KFold
@@ -5,27 +7,23 @@ from torch import nn, Tensor
 from torch.autograd import Variable
 from torch.utils.data import DataLoader
 
-import numpy as np
-
 from Code.data.dataset import MyDataset
+from Code.data.dataset_reversed import RevDataset
 
 z_dim = 640
 
 
 class WGAN:
-    def __init__(self, dataname, target_label, rev=False, batch_size=64, lr=0.0064):
+    def __init__(self, dataset, target_label, rev=False, batch_size=64, lr=0.00064):
         self.lr = lr
         self.rev = rev
         self.generator = None
 
-        # self.dataset = MyDataset(dataname, rev=rev)
-        self.dataset = MyDataset(dataname, target_label)
-        # data loader 数据载入
         self.dataloader = DataLoader(
-            dataset=self.dataset, batch_size=batch_size, shuffle=True
+            dataset=dataset, batch_size=batch_size, shuffle=True
         )
 
-        self.shape_input = len(self.dataset.data[0])
+        self.shape_input = len(dataset[0][0])
 
     def train(self, epochs):
         generator = self.Generator(self.shape_input)
@@ -91,12 +89,7 @@ class WGAN:
         z = Variable(torch.randn(output_num, z_dim))
 
         # Generate a batch of images
-        data_fake = [
-            [round
-             (f * np.std([td[i] for td in self.dataset.data]) + np.mean([td[i] for td in self.dataset.data]), 2
-              ) for i, f in enumerate(fd.tolist())
-             ] for fd in self.generator(z).detach()
-        ]
+        data_fake = [[round(a, 2) for a in d.tolist()] for d in self.generator(z).detach()]
 
         return data_fake
 
@@ -104,7 +97,7 @@ class WGAN:
         def __init__(self, shape_input):
             super(WGAN.Generator, self).__init__()
 
-            def block(in_feat, out_feat, normalize=False):
+            def block(in_feat, out_feat, normalize=True):
                 layers = [nn.Linear(in_feat, out_feat)]
                 if normalize:
                     layers.append(nn.BatchNorm1d(out_feat, 0.8))
@@ -140,58 +133,24 @@ class WGAN:
 
 if __name__ == '__main__':
     datanames = [
-        'yeast-0-5-6-7-9_vs_4.dat',
+        # 'yeast-0-5-6-7-9_vs_4.dat',
         'ecoli4.dat',
-        'glass5.dat',
-        'yeast5.dat',
-        'yeast6.dat',
+        # 'glass5.dat',
+        # 'yeast5.dat',
+        # 'yeast6.dat',
     ]
     for dataname in datanames:
-        print('present dataset: ', dataname)
         dataset = MyDataset(dataname)
-
         label_positive, label_negative = dataset.label_positive, dataset.label_negative
-        # label_positive, label_negative = label_negative, label_positive
+        dataset = RevDataset(dataname, label_negative)
+        # subset = dataset[3]
+        for subset in dataset:
+            # label_positive, label_negative = label_negative, label_positive
 
-        gan = WGAN(dataname, target_label=label_negative)
-        gan.train(40)
+            gan = WGAN(subset, target_label=label_negative)
+            gan.train(100)
+            data_fake = gan.gen(26)
 
-        data_positive = [dataset.data[i] for i, (_, l) in enumerate(dataset) if l == label_positive]
-        # print(dataset.data[0])
-        labels_positive = len(data_positive) * [label_positive]
-        data_negative = [dataset.data[i] for i, (_, l) in enumerate(dataset) if l == label_negative]
-        # print(data_negative[0])
-        labels_negative = len(data_negative) * [label_negative]
-        data_fake_negative = gan.gen(dataset.label_dict[label_positive])  # 随机噪声输入到生成器中，得到一副假的图片
-        # print('fake: ')
-        # for d in data_fake_negative:
-        #     print(d)
-        labels_fake_negative = len(data_fake_negative) * [label_negative]
-
-        # X = data_positive + data_fake_negative
-        # y = labels_positive + labels_fake_negative
-        # X_original = data_negative
-        # y_original = labels_negative
-        X = data_positive + data_fake_negative
-        y = labels_positive + labels_fake_negative
-        X_original = data_negative
-        y_original = labels_negative
-
-        acc = 0.0
-        kf = KFold(n_splits=5, shuffle=True)
-        for (i_train, _), (_, i_test) in zip(kf.split(X, y), kf.split(X_original, y_original)):
-            train_X = [X[i] for i in i_train]
-            train_y = [y[i] for i in i_train]
-            test_X = [X_original[i] for i in i_test]
-            test_y = [y_original[i] for i in i_test]
-
-            clf = svm.SVC()
-            clf.fit(train_X, train_y)
-            predict = clf.predict(test_X).tolist()
-            # print(predict.count(label_negative))
-            # print(len(predict))
-            # print(test_y)
-
-            acc += predict.count(label_negative) / len(predict)
-        print('\033[0;36moriginal acc :  {:>2.3f} \033[0m'.format(acc / 5))
-        # print('\033[0;36moriginal acc :  {:>2.3f} \033[0m'.format(acc))
+            t = [round(g[0] * np.std(subset.data).astype(float) + np.mean(subset.data), 2) for g in data_fake]
+            print(subset.data)
+            print(t)
