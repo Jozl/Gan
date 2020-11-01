@@ -8,16 +8,19 @@ from torch.utils.data import DataLoader
 import numpy as np
 
 from Code.data.dataset import MyDataset
-from Code.utils.classify_helper import classify, print_acc, compute_acc
+from Code.utils.classify_helper import classify, print_acc, compute_acc, compute_classification_indicators, \
+    compute_TP_TN_FP_FN
 
 z_dim = 640
 
 
 class WGAN:
-    def __init__(self, dataname, target_label, batch_size=64, lr=0.0064):
+    def __init__(self, dataname, target_label, rev=False, batch_size=64, lr=0.0064):
         self.lr = lr
+        self.rev = rev
         self.generator = None
 
+        # self.dataset = MyDataset(dataname, rev=rev)
         self.dataset = MyDataset(dataname, target_label)
         # data loader 数据载入
         self.dataloader = DataLoader(
@@ -162,11 +165,7 @@ if __name__ == '__main__':
         labels_negative = len(data_negative) * [label_negative]
         # print('negative num: ', len(data_negative))
 
-        gan = WGAN(dataname, label_negative)
-        data_fake_negative = gan.gen(len(data_positive))
-        labels_fake_negative = len(data_negative) * [label_negative]
-
-        print('after gan')
+        print('just classify')
         acc = 0.0
         for (i_p, j_p), (i_n, j_n) in zip(kf.split(data_positive, labels_positive),
                                           kf.split(data_negative, labels_negative)):
@@ -179,6 +178,7 @@ if __name__ == '__main__':
             clf.fit(train_X, train_y)
             predict = clf.predict(test_X)
 
-            acc += compute_acc(predict, test_y, label=label_negative)
+            acc += compute_classification_indicators(
+                *compute_TP_TN_FP_FN(test_y, predict, label_positive, label_negative))[1]
 
         print_acc(acc / 5)
