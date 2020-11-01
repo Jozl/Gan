@@ -164,17 +164,19 @@ if __name__ == '__main__':
         # print('negative num: ', len(data_negative))
 
         gan = WGAN(dataname, label_negative)
+        gan.train(1000)
+
         data_fake_negative = gan.gen(len(data_positive))
-        labels_fake_negative = len(data_negative) * [label_negative]
+        labels_fake_negative = len(data_fake_negative) * [label_negative]
 
         print('after gan')
         acc = 0.0
-        for (i_p, j_p), (i_n, j_n) in zip(kf.split(data_positive, labels_positive),
-                                          kf.split(data_negative, labels_negative)):
-            train_X = [data_positive[i] for i in i_p] + [data_negative[i] for i in i_n]
-            train_y = [labels_positive[i] for i in i_p] + [labels_negative[i] for i in i_n]
-            test_X = [data_positive[i] for i in j_p] + [data_negative[i] for i in j_n]
-            test_y = [labels_positive[i] for i in j_p] + [labels_negative[i] for i in j_n]
+        for (i_train, i_test), (j_train, j_test) in zip(kf.split(data_positive, labels_positive),
+                                          kf.split(data_fake_negative, labels_fake_negative)):
+            train_X = [data_positive[i] for i in i_train] + [data_fake_negative[i] for i in j_train]
+            train_y = [labels_positive[i] for i in i_train] + [labels_fake_negative[i] for i in j_train]
+            test_X = [data_positive[i] for i in i_test] + [data_fake_negative[i] for i in j_test]
+            test_y = [labels_positive[i] for i in i_test] + [labels_fake_negative[i] for i in j_test]
 
             clf = classifier()
             clf.fit(train_X, train_y)
