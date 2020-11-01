@@ -15,12 +15,10 @@ z_dim = 640
 
 
 class WGAN:
-    def __init__(self, dataname, target_label, rev=False, batch_size=64, lr=0.0064):
+    def __init__(self, dataname, target_label, batch_size=64, lr=0.0064):
         self.lr = lr
-        self.rev = rev
         self.generator = None
 
-        # self.dataset = MyDataset(dataname, rev=rev)
         self.dataset = MyDataset(dataname, target_label)
         # data loader 数据载入
         self.dataloader = DataLoader(
@@ -165,7 +163,11 @@ if __name__ == '__main__':
         labels_negative = len(data_negative) * [label_negative]
         # print('negative num: ', len(data_negative))
 
-        print('just classify')
+        gan = WGAN(dataname, label_negative)
+        data_fake_negative = gan.gen(len(data_positive))
+        labels_fake_negative = len(data_negative) * [label_negative]
+
+        print('after gan')
         acc = 0.0
         for (i_p, j_p), (i_n, j_n) in zip(kf.split(data_positive, labels_positive),
                                           kf.split(data_negative, labels_negative)):
