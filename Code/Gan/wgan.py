@@ -168,10 +168,10 @@ if __name__ == '__main__':
         acc = 0.0
         for (i_p, j_p), (i_n, j_n) in zip(kf.split(data_positive, labels_positive),
                                           kf.split(data_negative, labels_negative)):
-            train_X = [data_positive[i] for i in i_p] + [data_negative[i] for i in i_n]
-            train_y = [labels_positive[i] for i in i_p] + [labels_negative[i] for i in i_n]
-            test_X = [data_positive[i] for i in j_p] + [data_negative[i] for i in j_n]
-            test_y = [labels_positive[i] for i in j_p] + [labels_negative[i] for i in j_n]
+            train_X = data_positive + [data_negative[i] for i in i_n]
+            train_y = labels_positive + [labels_negative[i] for i in i_n]
+            test_X = [data_negative[i] for i in j_n]
+            test_y =  [labels_negative[i] for i in j_n]
 
             clf = classifier()
             clf.fit(train_X, train_y)
