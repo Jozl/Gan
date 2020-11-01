@@ -8,6 +8,7 @@ from torch.utils.data import DataLoader
 import numpy as np
 
 from Code.data.dataset import MyDataset
+from Code.utils.classify_helper import classify, print_acc, compute_acc
 
 z_dim = 640
 
@@ -139,6 +140,11 @@ class WGAN:
 
 
 if __name__ == '__main__':
+    # kf = None
+    kf = KFold(5, shuffle=False)
+    classifier = svm.SVC
+    use_gan = False
+
     datanames = [
         'yeast-0-5-6-7-9_vs_4.dat',
         'ecoli4.dat',
@@ -151,47 +157,26 @@ if __name__ == '__main__':
         dataset = MyDataset(dataname)
 
         label_positive, label_negative = dataset.label_positive, dataset.label_negative
-        # label_positive, label_negative = label_negative, label_positive
-
-        gan = WGAN(dataname, target_label=label_negative)
-        gan.train(40)
 
         data_positive = [dataset.data[i] for i, (_, l) in enumerate(dataset) if l == label_positive]
-        # print(dataset.data[0])
         labels_positive = len(data_positive) * [label_positive]
         data_negative = [dataset.data[i] for i, (_, l) in enumerate(dataset) if l == label_negative]
-        # print(data_negative[0])
         labels_negative = len(data_negative) * [label_negative]
-        data_fake_negative = gan.gen(dataset.label_dict[label_positive])  # 随机噪声输入到生成器中，得到一副假的图片
-        # print('fake: ')
-        # for d in data_fake_negative:
-        #     print(d)
-        labels_fake_negative = len(data_fake_negative) * [label_negative]
+        # print('negative num: ', len(data_negative))
 
-        # X = data_positive + data_fake_negative
-        # y = labels_positive + labels_fake_negative
-        # X_original = data_negative
-        # y_original = labels_negative
-        X = data_positive + data_fake_negative
-        y = labels_positive + labels_fake_negative
-        X_original = data_negative
-        y_original = labels_negative
-
+        print('just classify')
         acc = 0.0
-        kf = KFold(n_splits=5, shuffle=True)
-        for (i_train, _), (_, i_test) in zip(kf.split(X, y), kf.split(X_original, y_original)):
-            train_X = [X[i] for i in i_train]
-            train_y = [y[i] for i in i_train]
-            test_X = [X_original[i] for i in i_test]
-            test_y = [y_original[i] for i in i_test]
+        for (i_p, j_p), (i_n, j_n) in zip(kf.split(data_positive, labels_positive),
+                                          kf.split(data_negative, labels_negative)):
+            train_X = [data_positive[i] for i in i_p] + [data_negative[i] for i in i_n]
+            train_y = [labels_positive[i] for i in i_p] + [labels_negative[i] for i in i_n]
+            test_X = [data_positive[i] for i in j_p] + [data_negative[i] for i in j_n]
+            test_y = [labels_positive[i] for i in j_p] + [labels_negative[i] for i in j_n]
 
-            clf = svm.SVC()
+            clf = classifier()
             clf.fit(train_X, train_y)
-            predict = clf.predict(test_X).tolist()
-            # print(predict.count(label_negative))
-            # print(len(predict))
-            # print(test_y)
+            predict = clf.predict(test_X)
 
-            acc += predict.count(label_negative) / len(predict)
-        print('\033[0;36moriginal acc :  {:>2.3f} \033[0m'.format(acc / 5))
-        # print('\033[0;36moriginal acc :  {:>2.3f} \033[0m'.format(acc))
+            acc += compute_acc(predict, test_y, label=label_negative)
+
+        print_acc(acc / 5)
