@@ -56,11 +56,20 @@ def compute_TP_TN_FP_FN(labels_test, labels_predict, label_positive, label_negat
         TN += x == y == label_negative
         FP += x == label_negative != y
         FN += x == label_positive != y
-
+    # print('TP: {}, TN: {}, FP: {}, FN: {}'.format(TP, TN, FP, FN))
     return TP, TN, FP, FN
 
 
-def compute_classification_indicators(TP, TN, FP, FN):
+def print_classify_indicators(args):
+    print(('\033[0;36m' +
+           'acc+: {:>2.3f}, ' +
+           'acc-: {:>2.3f}, accuracy: {:>2.3f}, precision: {:>2.3f}, ' +
+           'recall: {:>2.3f}, F1: {:>2.3f}, G-mean: {:>2.3f}' +
+           ' \033[0m'
+           ).format(*[a  for a in args]))
+
+
+def compute_classify_indicators(TP, TN, FP, FN):
     res = (acc_p, acc_n, accuracy, precision, recall, F1, G_mean) = 0, 0, 0, 0, 0, 0, 0
     try:
         acc_p = TP / (TP + FN)

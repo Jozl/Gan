@@ -8,8 +8,8 @@ from torch.utils.data import DataLoader
 import numpy as np
 
 from Code.data.dataset import MyDataset
-from Code.utils.classify_helper import classify, print_acc, compute_acc, compute_classification_indicators, \
-    compute_TP_TN_FP_FN
+from Code.utils.classify_helper import compute_classify_indicators, print_classify_indicators, compute_TP_TN_FP_FN
+from Code.utils.sheet_helper import SheetWriter
 
 z_dim = 320
 
@@ -71,7 +71,8 @@ class WGAN:
                     # -----------------
 
                     optimizer_G.zero_grad()
-
+                    # Sample noise as generator input
+                    z = Variable(torch.randn(1000, z_dim))
                     # Generate a batch of images
                     data_fake = generator(z)
                     # Adversarial loss
@@ -143,13 +144,15 @@ if __name__ == '__main__':
     kf = KFold(5, shuffle=False)
     classifier = svm.SVC
     use_gan = False
+    sheet_writer = SheetWriter()
+    sheet_writer.writerow(['acc+', 'acc-', 'accuracy', 'precision', 'recall', 'F1', 'G-mean'])
 
     for _ in range(10):
         datanames = [
-            # 'yeast-0-5-6-7-9_vs_4.dat',
-            # 'ecoli4.dat',
-            # 'glass5.dat',
-            # 'yeast5.dat',
+            'yeast-0-5-6-7-9_vs_4.dat',
+            'ecoli4.dat',
+            'glass5.dat',
+            'yeast5.dat',
             'yeast6.dat',
         ]
         for dataname in datanames:
@@ -165,25 +168,35 @@ if __name__ == '__main__':
             # print('negative num: ', len(data_negative))
 
             gan = WGAN(dataname, label_negative)
-            gan.train(200)
+            gan.train(1000)
 
             data_fake_negative = gan.gen(len(data_positive))
             labels_fake_negative = len(data_fake_negative) * [label_negative]
 
             print('after gan')
 
-            acc = 0.0
-            for (i_train, i_test) in kf.split(data_negative, labels_negative):
+            args = None
+            for (i_train, i_test), (j_train, j_test) in zip(
+                    kf.split(data_positive, labels_positive),
+                    kf.split(data_negative, labels_negative)
+            ):
                 train_X = data_positive + data_fake_negative
                 train_y = labels_positive + labels_fake_negative
-                test_X = [data_negative[i] for i in i_test]
-                test_y = [labels_negative[i] for i in i_test]
+                test_X = [data_positive[i] for i in i_test] + [data_negative[i] for i in j_test]
+                test_y = [labels_positive[i] for i in i_test] + [labels_negative[i] for i in j_test]
 
                 clf = classifier()
                 clf.fit(train_X, train_y)
                 predict = clf.predict(test_X)
+                temp = compute_classify_indicators(
+                    *compute_TP_TN_FP_FN(test_y, predict, label_positive, label_negative))
+                if not args:
+                    args = temp
+                else:
+                    args = [a + t for a, t in zip(args, temp)]
 
-                acc += compute_classification_indicators(
-                    *compute_TP_TN_FP_FN(test_y, predict, label_positive, label_negative))[1]
-
-            print_acc(acc / 5)
+            args = [round(a / 5, 5) for a in args]
+            print_classify_indicators(args)
+            # sheet_writer.writerow([dataname])
+            sheet_writer.writerow(['acc+', 'acc-', 'accuracy', 'precision', 'recall', 'F1', 'G-mean'])
+            sheet_writer.writerow(args + [dataname])
