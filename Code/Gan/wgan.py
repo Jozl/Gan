@@ -11,7 +11,7 @@ from Code.data.dataset import MyDataset
 from Code.utils.classify_helper import classify, print_acc, compute_acc, compute_classification_indicators, \
     compute_TP_TN_FP_FN
 
-z_dim = 640
+z_dim = 320
 
 
 class WGAN:
@@ -46,8 +46,8 @@ class WGAN:
 
                 # ---------------------
                 #  Train Discriminator
-                # ---------------------
-                for _ in range(10):
+                # ------------------- --
+                for _ in range(20):
                     optimizer_D.zero_grad()
 
                     # Sample noise as generator input
@@ -144,45 +144,46 @@ if __name__ == '__main__':
     classifier = svm.SVC
     use_gan = False
 
-    datanames = [
-        'yeast-0-5-6-7-9_vs_4.dat',
-        'ecoli4.dat',
-        'glass5.dat',
-        'yeast5.dat',
-        'yeast6.dat',
-    ]
-    for dataname in datanames:
-        print('present dataset: ', dataname)
-        dataset = MyDataset(dataname)
+    for _ in range(10):
+        datanames = [
+            # 'yeast-0-5-6-7-9_vs_4.dat',
+            # 'ecoli4.dat',
+            # 'glass5.dat',
+            # 'yeast5.dat',
+            'yeast6.dat',
+        ]
+        for dataname in datanames:
+            print('present dataset: ', dataname)
+            dataset = MyDataset(dataname)
 
-        label_positive, label_negative = dataset.label_positive, dataset.label_negative
+            label_positive, label_negative = dataset.label_positive, dataset.label_negative
 
-        data_positive = [dataset.data[i] for i, (_, l) in enumerate(dataset) if l == label_positive]
-        labels_positive = len(data_positive) * [label_positive]
-        data_negative = [dataset.data[i] for i, (_, l) in enumerate(dataset) if l == label_negative]
-        labels_negative = len(data_negative) * [label_negative]
-        # print('negative num: ', len(data_negative))
+            data_positive = [dataset.data[i] for i, (_, l) in enumerate(dataset) if l == label_positive]
+            labels_positive = len(data_positive) * [label_positive]
+            data_negative = [dataset.data[i] for i, (_, l) in enumerate(dataset) if l == label_negative]
+            labels_negative = len(data_negative) * [label_negative]
+            # print('negative num: ', len(data_negative))
 
-        gan = WGAN(dataname, label_negative)
-        gan.train(1000)
+            gan = WGAN(dataname, label_negative)
+            gan.train(200)
 
-        data_fake_negative = gan.gen(len(data_positive))
-        labels_fake_negative = len(data_fake_negative) * [label_negative]
+            data_fake_negative = gan.gen(len(data_positive))
+            labels_fake_negative = len(data_fake_negative) * [label_negative]
 
-        print('after gan')
+            print('after gan')
 
-        acc = 0.0
-        for (i_train, i_test) in kf.split(data_negative, labels_negative):
-            train_X = data_positive + data_fake_negative
-            train_y = labels_positive + labels_fake_negative
-            test_X = [data_negative[i] for i in i_test]
-            test_y = [labels_negative[i] for i in i_test]
+            acc = 0.0
+            for (i_train, i_test) in kf.split(data_negative, labels_negative):
+                train_X = data_positive + data_fake_negative
+                train_y = labels_positive + labels_fake_negative
+                test_X = [data_negative[i] for i in i_test]
+                test_y = [labels_negative[i] for i in i_test]
 
-            clf = classifier()
-            clf.fit(train_X, train_y)
-            predict = clf.predict(test_X)
+                clf = classifier()
+                clf.fit(train_X, train_y)
+                predict = clf.predict(test_X)
 
-            acc += compute_classification_indicators(
-                *compute_TP_TN_FP_FN(test_y, predict, label_positive, label_negative))[1]
+                acc += compute_classification_indicators(
+                    *compute_TP_TN_FP_FN(test_y, predict, label_positive, label_negative))[1]
 
-        print_acc(acc / 5)
+            print_acc(acc / 5)
