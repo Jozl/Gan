@@ -3,10 +3,12 @@ import csv
 
 class SheetWriter:
     def __init__(self, file_name='sheet_saved.csv'):
-        self.csv_writer = csv.writer(open(file_name, 'w', newline=''))
+        self.file_name = file_name
 
     def writerow(self, row):
-        self.csv_writer.writerow(row)
+        with open(self.file_name, 'w', newline='') as f:
+            w = csv.writer(f)
+            w.writerow(row)
 
 
 if __name__ == '__main__':
