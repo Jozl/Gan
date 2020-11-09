@@ -6,7 +6,7 @@ class SheetWriter:
         self.file_name = file_name
 
     def writerow(self, row):
-        with open(self.file_name, 'w', newline='') as f:
+        with open(self.file_name, 'a', newline='') as f:
             w = csv.writer(f)
             w.writerow(row)
 

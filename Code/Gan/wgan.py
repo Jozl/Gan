@@ -15,9 +15,11 @@ z_dim = 320
 
 
 class WGAN:
-    def __init__(self, dataname, target_label, batch_size=64, lr=0.0064):
+    def __init__(self, dataname, target_label, g_round=1, d_round=10, batch_size=64, lr=0.0064):
         self.lr = lr
         self.generator = None
+        self.loss_log = []
+        self.d_round, self.g_round = d_round, g_round
 
         self.dataset = MyDataset(dataname, target_label)
         # data loader 数据载入
@@ -47,7 +49,7 @@ class WGAN:
                 # ---------------------
                 #  Train Discriminator
                 # ------------------- --
-                for _ in range(20):
+                for _ in range(self.d_round):
                     optimizer_D.zero_grad()
 
                     # Sample noise as generator input
@@ -65,7 +67,7 @@ class WGAN:
                         p.data.clamp_(-0.01, 0.01)
 
                 # Train the generator every n_critic iterations
-                for _ in range(1):
+                for _ in range(self.g_round):
                     # -----------------
                     #  Train Generator
                     # -----------------
@@ -85,6 +87,7 @@ class WGAN:
                 # print("\r[Epoch %d/%d] [Batch %d/%d] [D loss: %f] [G loss: %f]"
                 #       % (epoch, epochs, i % len(self.dataloader), len(self.dataloader), loss_D.item(),
                 #          loss_G.item()))
+                self.loss_log.append([loss_D.item(), loss_G.item()])
 
         self.generator = generator
 
@@ -147,7 +150,7 @@ if __name__ == '__main__':
     sheet_writer = SheetWriter()
     sheet_writer.writerow(['acc+', 'acc-', 'accuracy', 'precision', 'recall', 'F1', 'G-mean'])
 
-    for _ in range(10):
+    for _ in range(1):
         datanames = [
             'yeast-0-5-6-7-9_vs_4.dat',
             'ecoli4.dat',
@@ -167,8 +170,41 @@ if __name__ == '__main__':
             labels_negative = len(data_negative) * [label_negative]
             # print('negative num: ', len(data_negative))
 
+            # --------------------------------
+            #       不gan
+            # ---------------------------------
+            # print('do nothing')
+            #
+            # args = None
+            # for (i_train, i_test), (j_train, j_test) in zip(
+            #         kf.split(data_positive, labels_positive),
+            #         kf.split(data_negative, labels_negative)
+            # ):
+            #     train_X = [data_positive[i] for i in i_train] + [data_negative[i] for i in j_train]
+            #     train_y = [labels_positive[i] for i in i_train] + [labels_negative[i] for i in j_train]
+            #     test_X = [data_positive[i] for i in i_test] + [data_negative[i] for i in j_test]
+            #     test_y = [labels_positive[i] for i in i_test] + [labels_negative[i] for i in j_test]
+            #
+            #     clf = classifier()
+            #     clf.fit(train_X, train_y)
+            #     predict = clf.predict(test_X)
+            #     temp = compute_classify_indicators(
+            #         *compute_TP_TN_FP_FN(test_y, predict, label_positive, label_negative))
+            #     if not args:
+            #         args = temp
+            #     else:
+            #         args = [a + t for a, t in zip(args, temp)]
+            #
+            # args = [round(a / 5, 5) for a in args]
+            # print_classify_indicators(args)
+            # # sheet_writer.writerow(['acc+', 'acc-', 'accuracy', 'precision', 'recall', 'F1', 'G-mean'])
+            # sheet_writer.writerow(args + [dataname])
+
+            # --------------------------------
+            # gan
+            # ---------------------------------
             gan = WGAN(dataname, label_negative)
-            gan.train(1000)
+            gan.train(200)
 
             data_fake_negative = gan.gen(len(data_positive))
             labels_fake_negative = len(data_fake_negative) * [label_negative]
@@ -180,8 +216,9 @@ if __name__ == '__main__':
                     kf.split(data_positive, labels_positive),
                     kf.split(data_negative, labels_negative)
             ):
-                train_X = data_positive + data_fake_negative
-                train_y = labels_positive + labels_fake_negative
+                train_X = [data_positive[i] for i in i_train] + [data_negative[i] for i in j_train] + data_fake_negative
+                train_y = [labels_positive[i] for i in i_train] + [labels_negative[i] for i in
+                                                                   j_train] + labels_fake_negative
                 test_X = [data_positive[i] for i in i_test] + [data_negative[i] for i in j_test]
                 test_y = [labels_positive[i] for i in i_test] + [labels_negative[i] for i in j_test]
 
@@ -198,5 +235,5 @@ if __name__ == '__main__':
             args = [round(a / 5, 5) for a in args]
             print_classify_indicators(args)
             # sheet_writer.writerow([dataname])
-            sheet_writer.writerow(['acc+', 'acc-', 'accuracy', 'precision', 'recall', 'F1', 'G-mean'])
+            # sheet_writer.writerow(['acc+', 'acc-', 'accuracy', 'precision', 'recall', 'F1', 'G-mean'])
             sheet_writer.writerow(args + [dataname])
